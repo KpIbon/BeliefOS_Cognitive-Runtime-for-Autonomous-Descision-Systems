@@ -1,0 +1,61 @@
+name: beliefos
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: beliefos
+      POSTGRES_PASSWORD: beliefos
+      POSTGRES_DB: beliefos
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U beliefos -d beliefos"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      BELIEFOS_ENV: production
+      BELIEFOS_DATABASE_URL: postgresql+asyncpg://beliefos:beliefos@postgres:5432/beliefos
+      BELIEFOS_REDIS_URL: redis://redis:6379/0
+      BELIEFOS_LOG_LEVEL: info
+      BELIEFOS_CORS_ORIGINS: "http://localhost:3000,http://localhost:8000"
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  postgres-data:
+  redis-data:
