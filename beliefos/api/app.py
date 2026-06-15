@@ -15,12 +15,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from beliefos.api.v1.routes import router as v1_router
 from beliefos.core.config import get_settings
 from beliefos.core.engine import get_engine
+from beliefos.dashboard.routes import router as dashboard_router
 from beliefos.storage.database import init_db
 
 
 @asynccontextmanager
 async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
-    init_db()
+    # init_db is best-effort: on serverless (Vercel) we may have no Postgres
+    # configured, in which case the engine falls back to in-memory storage.
+    try:
+        init_db()
+    except Exception:  # noqa: BLE001
+        pass
     get_engine()
     yield
 
@@ -52,8 +58,5 @@ def create_app() -> FastAPI:
     app.include_router(dashboard_router)
     return app
 
-
-# Import the dashboard router after create_app is defined to avoid circulars.
-from beliefos.dashboard.routes import router as dashboard_router  # noqa: E402
 
 app = create_app()

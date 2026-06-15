@@ -75,10 +75,14 @@ def report(engine: BeliefEngine = Depends(engine_dep)) -> dict:
 def health(engine: BeliefEngine = Depends(engine_dep)) -> dict:
     cache = engine._cache  # noqa: SLF001 — small read for ops
     import beliefos
+    try:
+        cache_alive = bool(cache.ping())
+    except Exception:  # noqa: BLE001 — cache may be down; report but don't 500
+        cache_alive = False
     return {
         "status": "ok",
         "version": beliefos.__version__,
         "environment": get_settings().environment,
         "cache": type(cache).__name__,
-        "cache_alive": bool(cache.ping()),
+        "cache_alive": cache_alive,
     }
