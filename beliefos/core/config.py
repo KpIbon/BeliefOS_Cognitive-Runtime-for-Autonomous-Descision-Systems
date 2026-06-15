@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from typing import Literal
+import os
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -34,7 +35,14 @@ class Settings(BaseSettings):
 
     # Storage
     database_url: str = Field(
-        default="sqlite:///./beliefos.db",
+        default_factory=lambda: (
+            # Vercel / serverless: the working directory is read-only, so
+            # fall back to a per-process in-memory SQLite by default. Set
+            # BELIEFOS_DATABASE_URL to a real Postgres URL to persist.
+            "sqlite:///:memory:"
+            if os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME")
+            else "sqlite:///./beliefos.db"
+        ),
         description="SQLAlchemy URL. Use postgresql+psycopg://... in production.",
     )
     database_echo: bool = False

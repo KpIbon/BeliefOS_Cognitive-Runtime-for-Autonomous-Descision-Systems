@@ -28,9 +28,18 @@ def _build_engine() -> Engine:
     settings = get_settings()
     url = settings.database_url
     connect_args: dict = {}
+    engine_kwargs: dict = {"future": True}
     if url.startswith("sqlite"):
         connect_args["check_same_thread"] = False
-    return create_engine(url, future=True, connect_args=connect_args)
+        if ":memory:" in url or url.endswith(":memory:"):
+            # In-memory SQLite: each connection would otherwise get its own
+            # private database. StaticPool pins a single shared connection
+            # so the schema created at init_db is visible to every session.
+            from sqlalchemy.pool import StaticPool
+
+            engine_kwargs["poolclass"] = StaticPool
+    engine_kwargs["connect_args"] = connect_args
+    return create_engine(url, **engine_kwargs)
 
 
 def get_engine() -> Engine:
